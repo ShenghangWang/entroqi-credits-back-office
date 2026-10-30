@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
+const ownerRouter=useRouter()
 import { computed, h, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, watchEffect } from 'vue'
 import type { VNodeChild } from 'vue'
 import * as echarts from 'echarts'
@@ -250,7 +252,7 @@ const interactionFeedback = ref('')
 const createAccountForm = reactive({
   targetRole: 'user' as PlatformUserTargetRole,
   username: '',
-  password: '123456',
+  password: '',
   displayName: '',
   phone: '',
   email: '',
@@ -375,7 +377,7 @@ const functionNameZhByCode: Record<string, string> = {
 watch(
   () => createAccountForm.applicationCode,
   (applicationCode) => {
-    if (isCreateAccountModalOpen.value) {
+    if (isCreateAccountModalOpen.value && createAccountForm.targetRole!=='user') {
       void loadCreatePlanOptions(applicationCode)
     }
   },
@@ -2447,7 +2449,7 @@ async function loadConnectPlanOptions(applicationCode: string) {
 
 function handleCreateTargetRoleChange(value: string | number | null) {
   const role = value as PlatformUserTargetRole
-  if (role) syncSelectedPlanFromCatalog()
+  if (role && role!=='user') syncSelectedPlanFromCatalog()
 }
 
 function handleCreatePlanChange(value: string | number | null) {
@@ -3575,7 +3577,7 @@ async function handleConnectApplication() {
 function resetCreateAccountForm(role: PlatformUserTargetRole) {
   createAccountForm.targetRole = role
   createAccountForm.username = ''
-  createAccountForm.password = '123456'
+  createAccountForm.password = ''
   createAccountForm.displayName = ''
   createAccountForm.phone = ''
   createAccountForm.email = ''
@@ -3593,7 +3595,7 @@ async function openCreateAccountModal(role: PlatformUserTargetRole) {
 
   resetCreateAccountForm(role)
   isCreateAccountModalOpen.value = true
-  await loadCreatePlanOptions(createAccountForm.applicationCode)
+  if(role!=='user')await loadCreatePlanOptions(createAccountForm.applicationCode)
 }
 
 async function handleAdminGateChange(
@@ -3785,7 +3787,7 @@ async function handleCreateAccount() {
     return
   }
 
-  if (!createAccountForm.planCode || !subscriptionPlans.value.some((plan) => plan.code === createAccountForm.planCode)) {
+  if (createAccountForm.targetRole!=='user' && (!createAccountForm.planCode || !subscriptionPlans.value.some((plan) => plan.code === createAccountForm.planCode))) {
     message.error('请选择当前应用可用的订阅计划')
     return
   }
@@ -3808,10 +3810,8 @@ async function handleCreateAccount() {
       displayName: createAccountForm.displayName.trim() || username,
       phone: createAccountForm.phone.trim() || undefined,
       email: createAccountForm.email.trim() || undefined,
-      applicationCode: createAccountForm.applicationCode,
+      ...(createAccountForm.targetRole!=='user'?{applicationCode:createAccountForm.applicationCode,planCode:createAccountForm.planCode,initialPoints:Number(createAccountForm.initialPoints??0)}:{}),
       accountScope: 'personal',
-      planCode: createAccountForm.planCode,
-      initialPoints: Number(createAccountForm.initialPoints ?? 0),
     })
 
     message.success(
@@ -5508,11 +5508,12 @@ const settlementApplicationColumns: DataTableColumns<PlatformSettlementApplicati
           <div class="admin-collapse-head">
             <span>
               <strong>账号与权限</strong><p style="margin:6px 0;color:#64748b;font-size:12px">普通用户可自行注册公司账号。代理商机制已保留，{{ authStore.agentWorkflowsEnabled ? '按已配置权限启用' : '当前未启用' }}。</p>
-              <small>开发者可创建 Admin、Agent 和 User，并配置全局创建权限。</small>
+              <small>所有者分别使用独立登录账号。创建账号、发布价格等重要操作可在操作记录中核查。</small>
             </span>
           </div>
           <div class="admin-collapse-body">
             <div class="admin-action-row" aria-label="开发者创建账号">
+              <NButton type="primary" @click="ownerRouter.push('/back-office/owners?create=1')">创建公司所有者</NButton>
               <NButton type="primary" @click="openCreateAccountModal('admin')">
                 <template #icon>
                   <Icon icon="mdi:account-tie-outline" />
@@ -6525,10 +6526,11 @@ const settlementApplicationColumns: DataTableColumns<PlatformSettlementApplicati
             </span>
             <div>
               <strong>创建 {{ targetRoleLabel(createAccountForm.targetRole) }}</strong>
-              <small>填写用户信息，完成后将自动创建账号</small>
+              <small>{{createAccountForm.targetRole==='user'?'公司统一账号，无需选择应用或购买套餐':'填写账号信息；创建取决于已接通的后台服务'}}</small>
             </div>
           </div>
         </template>
+        <p v-if="createAccountForm.targetRole==='user'" class="account-create-full">一个公司账号可进入各个应用，首次使用时再建立应用资料；付费权益分别购买。此处不绑定应用、套餐或初始积分。后台代建需接通公司统一账号服务，当前可通过公司账号自行注册。</p>
         <NForm label-placement="top" class="admin-create-form account-create-form" :show-feedback="false">
           <div class="account-create-grid">
             <NFormItem label="账号类型" required>
@@ -6560,15 +6562,15 @@ const settlementApplicationColumns: DataTableColumns<PlatformSettlementApplicati
               <NInput v-model:value="createAccountForm.displayName" placeholder="默认使用用户名" />
             </NFormItem>
             <NFormItem label="邮箱">
-              <NInput v-model:value="createAccountForm.email" placeholder="可选，未填时后端生成本地邮箱" />
+              <NInput v-model:value="createAccountForm.email" :placeholder="createAccountForm.targetRole==='user'?'公司账号邮箱':'可选'" />
             </NFormItem>
-            <NFormItem label="接入应用">
+            <NFormItem v-if="createAccountForm.targetRole!=='user'" label="接入应用">
               <NSelect
                 v-model:value="createAccountForm.applicationCode"
                 :options="applicationSelectOptions"
               />
             </NFormItem>
-            <NFormItem label="订阅计划">
+            <NFormItem v-if="createAccountForm.targetRole!=='user'" label="订阅计划">
               <NSelect
                 v-model:value="createAccountForm.planCode"
                 :options="planOptions"
@@ -6578,7 +6580,7 @@ const settlementApplicationColumns: DataTableColumns<PlatformSettlementApplicati
                 @update:value="handleCreatePlanChange"
               />
             </NFormItem>
-            <NFormItem label="初始积分" required class="account-create-full">
+            <NFormItem v-if="createAccountForm.targetRole!=='user'" label="初始积分" required class="account-create-full">
               <NInputNumber
                 v-model:value="createAccountForm.initialPoints"
                 :min="0"
@@ -6594,7 +6596,7 @@ const settlementApplicationColumns: DataTableColumns<PlatformSettlementApplicati
             <NButton :disabled="isCreatingAccount" @click="isCreateAccountModalOpen = false">
               取消
             </NButton>
-            <NButton type="primary" :loading="isCreatingAccount" @click="handleCreateAccount">
+            <NButton type="primary" :loading="isCreatingAccount" :disabled="createAccountForm.targetRole==='user'&&!authStore.userProvisioningEnabled" @click="handleCreateAccount">
               <template #icon>
                 <Icon icon="mdi:check" />
               </template>
@@ -6616,6 +6618,7 @@ const settlementApplicationColumns: DataTableColumns<PlatformSettlementApplicati
           <strong>{{ connectApplicationForm.displayName }}</strong>
           <span>{{ connectApplicationForm.username }} · {{ targetRoleLabel(connectApplicationForm.targetRole) }}</span>
         </div>
+        <p v-if="createAccountForm.targetRole==='user'" class="account-create-full">一个公司账号可进入各个应用，首次使用时再建立应用资料；付费权益分别购买。此处不绑定应用、套餐或初始积分。后台代建需接通公司统一账号服务，当前可通过公司账号自行注册。</p>
         <NForm label-placement="top" class="admin-create-form account-create-form" :show-feedback="false">
           <NFormItem label="接入应用" required>
             <NSelect

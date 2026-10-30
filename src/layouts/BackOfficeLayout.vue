@@ -21,7 +21,7 @@ const roleThemeClass = computed(() => {
 })
 
 const roleLabel = computed(() => {
-  if (authStore.role === 'developer') return authStore.userInfo?.id === 'company-owner' ? '公司所有者后台' : '开发者后台'
+  if (authStore.role === 'developer') return '公司所有者后台'
   if (authStore.role === 'admin') return '公司管理员后台'
   if (authStore.role === 'agent') return '代理商后台'
   return '未授权'
@@ -44,6 +44,7 @@ const navItems = computed(() => {
       { label: '流水表', anchor: 'developer-transactions', icon: 'mdi:chart-line' },
       { label: '结算审批', anchor: 'developer-settlements', icon: 'mdi:cash-check' },
       { label: '功能计费', anchor: 'developer-billing', icon: 'mdi:tune-variant' },
+      {label:'所有者与操作记录',anchor:'owners',icon:'mdi:history'},
       ...(authStore.permissions.includes('pricing:read') ? [{label:'定价与收费方案',anchor:'pricing',icon:'mdi:calculator'}] : []),
     ]
   }
@@ -71,7 +72,7 @@ const navItems = computed(() => {
   return []
 })
 
-const activeNavKey = computed(() => route.path === '/back-office/pricing' ? 'pricing' : activeNavAnchor.value || navItems.value[0]?.anchor)
+const activeNavKey = computed(() => route.path === '/back-office/owners' ? 'owners' : route.path === '/back-office/pricing' ? 'pricing' : activeNavAnchor.value || navItems.value[0]?.anchor)
 
 const appSignalStatus = computed(() => {
   if (selectedApplicationCode.value === 'all') return '平台视图'
@@ -98,8 +99,9 @@ onMounted(() => {
 })
 
 async function handleNavClick(anchor: string) {
+  if(anchor==='owners'){await router.push('/back-office/owners');return}
   if(anchor==='pricing'){await router.push('/back-office/pricing');return}
-  if(route.path==='/back-office/pricing'){await router.push({path:'/back-office',hash:'#'+anchor});activeNavAnchor.value=anchor;return}
+  if(['/back-office/pricing','/back-office/owners'].includes(route.path)){await router.push({path:'/back-office',hash:'#'+anchor});activeNavAnchor.value=anchor;return}
   activeNavAnchor.value = anchor
   await nextTick()
   window.history.replaceState(null, '', `#${anchor}`)
