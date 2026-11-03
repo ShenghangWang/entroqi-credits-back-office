@@ -3064,7 +3064,8 @@ function renderDeveloperAgentCreateUserControl(row: PlatformAgentPolicyOverride)
     h(NSwitch, {
       value: rowEnabled,
       loading: updatingAgentPolicyUserId.value === row.userId,
-      disabled: !accountCreationPolicyState.developerAllowsAgentCreateUsers,
+      disabled: !authStore.policyEditingEnabled || !accountCreationPolicyState.developerAllowsAgentCreateUsers,
+      'aria-disabled': !authStore.policyEditingEnabled || !accountCreationPolicyState.developerAllowsAgentCreateUsers,
       'onUpdate:value': (value: boolean) =>
         handleAgentCreateUserDisableChange(row.userId, !value),
     }),
@@ -4447,7 +4448,8 @@ const adminAuthorizationColumns: DataTableColumns<PlatformAdminPolicyOverride> =
           h(NSwitch, {
             value: rowEnabled,
             loading: updatingAdminPolicyUserId.value === row.userId,
-            disabled: !accountCreationPolicyState.developerAllowsAdminCreateUsers,
+            disabled: !authStore.policyEditingEnabled || !accountCreationPolicyState.developerAllowsAdminCreateUsers,
+            'aria-disabled': !authStore.policyEditingEnabled || !accountCreationPolicyState.developerAllowsAdminCreateUsers,
             'onUpdate:value': (value: boolean) =>
               handleAdminGateChange(row.userId, 'createUsers', value),
           }),
@@ -4476,7 +4478,8 @@ const adminAuthorizationColumns: DataTableColumns<PlatformAdminPolicyOverride> =
           h(NSwitch, {
             value: rowEnabled,
             loading: updatingAdminPolicyUserId.value === row.userId,
-            disabled: !accountCreationPolicyState.developerAllowsAdminCreateAgentsAndUsers,
+            disabled: !authStore.policyEditingEnabled || !accountCreationPolicyState.developerAllowsAdminCreateAgentsAndUsers,
+            'aria-disabled': !authStore.policyEditingEnabled || !accountCreationPolicyState.developerAllowsAdminCreateAgentsAndUsers,
             'onUpdate:value': (value: boolean) =>
               handleAdminGateChange(row.userId, 'createAgents', value),
           }),
@@ -4610,7 +4613,8 @@ const agentAuthorizationColumns: DataTableColumns<PlatformAgentPolicyOverride> =
           h(NSwitch, {
             value: !row.developerDisabledCreateUsers,
             loading: updatingAgentPolicyUserId.value === row.userId,
-            disabled: !accountCreationPolicyState.developerAllowsAgentCreateUsers,
+            disabled: !authStore.policyEditingEnabled || !accountCreationPolicyState.developerAllowsAgentCreateUsers,
+            'aria-disabled': !authStore.policyEditingEnabled || !accountCreationPolicyState.developerAllowsAgentCreateUsers,
             'onUpdate:value': (value: boolean) =>
               handleAgentCreateUserDisableChange(row.userId, !value),
           }),
@@ -5507,7 +5511,7 @@ const settlementApplicationColumns: DataTableColumns<PlatformSettlementApplicati
         >
           <div class="admin-collapse-head">
             <span>
-              <strong>账号与权限</strong><p style="margin:6px 0;color:#64748b;font-size:12px">普通用户可自行注册公司账号。代理商机制已保留，{{ authStore.agentWorkflowsEnabled ? '按已配置权限启用' : '当前未启用' }}。</p>
+              <p v-if="!authStore.policyEditingEnabled" role="status">原有账号策略模板已保留，当前未激活。后台代建尚未开放；普通用户可自行注册公司账号。</p><strong>账号与权限</strong><p style="margin:6px 0;color:#64748b;font-size:12px">普通用户可自行注册公司账号。代理商机制已保留，{{ authStore.agentWorkflowsEnabled ? '按已配置权限启用' : '当前未启用' }}。</p>
               <small>所有者分别使用独立登录账号。创建账号、发布价格等重要操作可在操作记录中核查。</small>
             </span>
           </div>
@@ -5520,7 +5524,7 @@ const settlementApplicationColumns: DataTableColumns<PlatformSettlementApplicati
                 </template>
                 创建 Admin
               </NButton>
-              <NButton :disabled="!authStore.agentWorkflowsEnabled" @click="openCreateAccountModal('agent')">
+              <NButton :disabled="!authStore.policyEditingEnabled || !authStore.agentWorkflowsEnabled" @click="openCreateAccountModal('agent')">
                 <template #icon>
                   <Icon icon="mdi:handshake-outline" />
                 </template>
@@ -5539,21 +5543,21 @@ const settlementApplicationColumns: DataTableColumns<PlatformSettlementApplicati
                   <h3>允许公司管理员创建 User</h3>
                   <p>一级总开关；关闭后所有 Admin 不能创建 User。</p>
                 </div>
-                <NSwitch v-model:value="accountCreationPolicyState.developerAllowsAdminCreateUsers" />
+                <NSwitch v-model:value="accountCreationPolicyState.developerAllowsAdminCreateUsers" :aria-disabled="!authStore.policyEditingEnabled" :disabled="!authStore.policyEditingEnabled" />
               </article>
               <article class="admin-toggle-card">
                 <div>
                   <h3>允许公司管理员创建 Agent</h3>
                   <p>一级总开关；关闭后所有 Admin 不能创建 Agent，也不能让 User 成为 Agent。</p>
                 </div>
-                <NSwitch v-model:value="accountCreationPolicyState.developerAllowsAdminCreateAgentsAndUsers" :disabled="!authStore.agentWorkflowsEnabled" />
+                <NSwitch v-model:value="accountCreationPolicyState.developerAllowsAdminCreateAgentsAndUsers" :aria-disabled="!authStore.policyEditingEnabled || !authStore.agentWorkflowsEnabled" :disabled="!authStore.policyEditingEnabled || !authStore.agentWorkflowsEnabled" />
               </article>
               <article class="admin-toggle-card">
                 <div>
                   <h3>允许代理商创建 User</h3>
                   <p>一级覆盖开关；关闭后所有 Agent 不能创建 User。</p>
                 </div>
-                <NSwitch v-model:value="accountCreationPolicyState.developerAllowsAgentCreateUsers" :disabled="!authStore.agentWorkflowsEnabled" />
+                <NSwitch v-model:value="accountCreationPolicyState.developerAllowsAgentCreateUsers" :aria-disabled="!authStore.policyEditingEnabled || !authStore.agentWorkflowsEnabled" :disabled="!authStore.policyEditingEnabled || !authStore.agentWorkflowsEnabled" />
               </article>
             </div>
           </div>
@@ -5598,14 +5602,14 @@ const settlementApplicationColumns: DataTableColumns<PlatformSettlementApplicati
                   <h3>公司管理员创建 User</h3>
                   <p>{{ effectiveAccountCreationPolicy.adminCanCreateUsers ? '开发者已开启' : '开发者已关闭' }}</p>
                 </div>
-                <NSwitch :value="effectiveAccountCreationPolicy.adminCanCreateUsers" disabled />
+                <NSwitch :value="effectiveAccountCreationPolicy.adminCanCreateUsers" aria-disabled="true" disabled />
               </article>
               <article class="admin-toggle-card">
                 <div>
                   <h3>公司管理员创建 Agent</h3>
                   <p>{{ effectiveAccountCreationPolicy.adminCanCreateAgents ? '开发者已开启' : '开发者已关闭' }}</p>
                 </div>
-                <NSwitch :value="effectiveAccountCreationPolicy.adminCanCreateAgents" disabled />
+                <NSwitch :value="effectiveAccountCreationPolicy.adminCanCreateAgents" aria-disabled="true" disabled />
               </article>
               <article class="admin-toggle-card">
                 <div>
@@ -5614,7 +5618,7 @@ const settlementApplicationColumns: DataTableColumns<PlatformSettlementApplicati
                 </div>
                 <NSwitch
                   v-model:value="accountCreationPolicyState.adminAllowsAgentCreateUsers"
-                  :disabled="!authStore.agentWorkflowsEnabled || !accountCreationPolicyState.developerAllowsAgentCreateUsers"
+                  :aria-disabled="!authStore.policyEditingEnabled || !authStore.agentWorkflowsEnabled || !accountCreationPolicyState.developerAllowsAgentCreateUsers" :disabled="!authStore.policyEditingEnabled || !authStore.agentWorkflowsEnabled || !accountCreationPolicyState.developerAllowsAgentCreateUsers"
                 />
               </article>
               <article class="admin-toggle-card">
@@ -5624,7 +5628,7 @@ const settlementApplicationColumns: DataTableColumns<PlatformSettlementApplicati
                 </div>
                 <NSwitch
                   v-model:value="accountCreationPolicyState.adminAllowsUserBecomeAgent"
-                  :disabled="!authStore.agentWorkflowsEnabled || !accountCreationPolicyState.developerAllowsAdminCreateAgentsAndUsers"
+                  :aria-disabled="!authStore.policyEditingEnabled || !authStore.agentWorkflowsEnabled || !accountCreationPolicyState.developerAllowsAdminCreateAgentsAndUsers" :disabled="!authStore.policyEditingEnabled || !authStore.agentWorkflowsEnabled || !accountCreationPolicyState.developerAllowsAdminCreateAgentsAndUsers"
                 />
               </article>
             </div>
@@ -6596,7 +6600,7 @@ const settlementApplicationColumns: DataTableColumns<PlatformSettlementApplicati
             <NButton :disabled="isCreatingAccount" @click="isCreateAccountModalOpen = false">
               取消
             </NButton>
-            <NButton type="primary" :loading="isCreatingAccount" :disabled="createAccountForm.targetRole==='user'&&!authStore.userProvisioningEnabled" @click="handleCreateAccount">
+            <NButton type="primary" :loading="isCreatingAccount" :disabled="!authStore.staffProvisioningEnabled || (createAccountForm.targetRole==='user'&&!authStore.userProvisioningEnabled)" @click="handleCreateAccount">
               <template #icon>
                 <Icon icon="mdi:check" />
               </template>
